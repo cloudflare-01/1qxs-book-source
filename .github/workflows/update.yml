@@ -1,15 +1,12 @@
 name: 📚 一七小说书源自动维护
 
 on:
-  # ── 定时触发：每天北京时间 08:00（UTC 00:00）──
   schedule:
     - cron: '0 0 * * *'
-
-  # ── 支持手动在网页上触发 ──
   workflow_dispatch:
     inputs:
       force_update:
-        description: '强制更新书源（即使验证部分失败）'
+        description: '强制更新书源'
         required: false
         default: 'false'
         type: choice
@@ -22,65 +19,35 @@ jobs:
     name: 验证 & 更新书源
     runs-on: ubuntu-latest
 
-    # 给 Actions bot 写权限（用于提交更新后的书源文件）
     permissions:
       contents: write
 
     steps:
-      # ────────────────────────────────
-      # 1. 拉取仓库代码
-      # ────────────────────────────────
       - name: ⬇️ Checkout 代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # 拉完整历史，便于 diff 对比
 
-      # ────────────────────────────────
-      # 2. 配置 Python 环境
-      # ────────────────────────────────
       - name: 🐍 设置 Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # ────────────────────────────────
-      # 3. 安装依赖
-      # ────────────────────────────────
       - name: 📦 安装依赖
         run: |
           pip install --upgrade pip
           pip install requests beautifulsoup4 lxml
 
-      # ────────────────────────────────
-      # 4. 运行验证脚本
-      # ────────────────────────────────
       - name: 🔍 运行书源验证
-        id: validate
-        run: |
-          python validate.py
-          echo "validate_exit=$?" >> $GITHUB_OUTPUT
-        continue-on-error: true   # 即使验证失败也继续，不中断流程
+        run: python validate.py
+        continue-on-error: true
 
-      # ────────────────────────────────
-      # 5. 检查验证结果
-      # ────────────────────────────────
       - name: 📊 查看验证报告
-        run: |
-          echo "====== 验证报告 ======"
-          cat logs/validation_report.md || echo "（报告文件不存在）"
+        run: cat logs/validation_report.md || echo "（报告文件不存在）"
 
-      # ────────────────────────────────
-      # 6. 提交更新
-      # ────────────────────────────────
       - name: 📤 提交书源更新
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 添加书源文件和日志
           git add sources/ logs/ || true
-
-          # 检查是否有实际变更
           if git diff --staged --quiet; then
             echo "📭 无内容变更，跳过提交"
           else
@@ -90,16 +57,7 @@ jobs:
             echo "✅ 已成功推送更新"
           fi
 
-      # ────────────────────────────────
-      # 7. 输出订阅链接（方便查看）
-      # ────────────────────────────────
       - name: 🔗 书源订阅链接
         run: |
           REPO="${{ github.repository }}"
-          echo ""
-          echo "╔══════════════════════════════════════════════════════════╗"
-          echo "║  📱 legado 书源订阅链接（复制到 App 导入）              ║"
-          echo "╠══════════════════════════════════════════════════════════╣"
-          echo "║  https://raw.githubusercontent.com/${REPO}/main/sources/1qxs.json"
-          echo "╚══════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "订阅链接：https://raw.githubusercontent.com/${REPO}/main/sources/1qxs.json"
