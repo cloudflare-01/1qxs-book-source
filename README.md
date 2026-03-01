@@ -16,12 +16,8 @@
 粘贴以下链接：
 
 ```
-https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/sources/1qxs.json
+https://github.com/cloudflare-01/1qxs-book-source/blob/main/sources/1qxs.json
 ```
-
-> ⚠️ 请将 `YOUR_USERNAME` 和 `YOUR_REPO` 替换为你的 GitHub 用户名和仓库名
-
----
 
 ## ✨ 功能特性
 
