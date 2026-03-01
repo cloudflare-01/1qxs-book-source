@@ -17,18 +17,14 @@ jobs:
       - name: ⬇️ Checkout 代码
         uses: actions/checkout@v4
 
-      - name: 🐍 设置 Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
       - name: 📦 安装依赖
         run: |
-          pip install --upgrade pip
-          pip install requests beautifulsoup4 lxml
+          python3 --version
+          pip3 install --upgrade pip
+          pip3 install requests beautifulsoup4 lxml
 
       - name: 🔍 运行书源验证
-        run: python validate.py
+        run: python3 validate.py
         continue-on-error: true
 
       - name: 📊 查看验证报告
