@@ -10,7 +10,6 @@
     "exploreUrl": "/all/0_0_0_0_0_1.html",
     "searchUrl": "/so/{{key}}/{{page}}/",
     "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\"}",
-
     "ruleSearch": {
       "bookList": ".book-list li,.list-box li,#bookList .item",
       "name": "a.name,h3 a,.book-name a,a:eq(0)@text",
@@ -21,7 +20,6 @@
       "bookUrl": "a.name,h3 a,a:eq(0)@href",
       "coverUrl": "img@src"
     },
-
     "ruleBookInfo": {
       "init": "",
       "name": "h1.book-name,h1@text",
@@ -33,20 +31,17 @@
       "coverUrl": ".book-cover img,.cover img@src",
       "tocUrl": "@js:baseUrl"
     },
-
     "ruleToc": {
       "chapterList": "#catalog li,#chapterList li,.catalog-list li",
       "chapterName": "a@text",
       "chapterUrl": "a@href",
       "updateTime": ""
     },
-
     "ruleContent": {
       "content": "#content,#chapterContent,.content@text",
       "replaceRegex": "<br\\s*/?>|<p>|</p>|\\s+<|>\\s+",
       "nextContentUrl": ""
     },
-
     "ruleExplore": {
       "bookList": ".book-list li,.list-box li",
       "name": "a.name,h3 a@text",
@@ -57,8 +52,7 @@
       "bookUrl": "a@href",
       "coverUrl": "img@src"
     },
-
-    "lastUpdateTime": 1740844800000,
+    "lastUpdateTime": 1772343366464,
     "weight": 100,
     "respondTime": 300000,
     "loginUrl": "",
