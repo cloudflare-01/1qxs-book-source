@@ -1,0 +1,67 @@
+[
+  {
+    "bookSourceName": "一七小说",
+    "bookSourceGroup": "免费小说",
+    "bookSourceUrl": "https://www.1qxs.com",
+    "bookSourceType": 0,
+    "bookSourceComment": "一七小说 - 免费全本小说阅读网 | 自动维护版本",
+    "enabled": true,
+    "enabledExplore": true,
+    "exploreUrl": "/all/0_0_0_0_0_1.html",
+    "searchUrl": "/so/{{key}}/{{page}}/",
+    "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\"}",
+
+    "ruleSearch": {
+      "bookList": ".book-list li,.list-box li,#bookList .item",
+      "name": "a.name,h3 a,.book-name a,a:eq(0)@text",
+      "author": ".author,span.author@text",
+      "intro": ".intro,.desc@text",
+      "kind": ".kind,.tag@text",
+      "lastChapter": ".last-chapter,.update a@text",
+      "bookUrl": "a.name,h3 a,a:eq(0)@href",
+      "coverUrl": "img@src"
+    },
+
+    "ruleBookInfo": {
+      "init": "",
+      "name": "h1.book-name,h1@text",
+      "author": ".book-author a,.author@text",
+      "intro": "#intro,#bookIntro,.intro@text",
+      "kind": ".book-tags a,.tags a@text",
+      "lastChapter": ".book-latest a,.last-update a@text",
+      "updateTime": ".update-time,.time@text",
+      "coverUrl": ".book-cover img,.cover img@src",
+      "tocUrl": "@js:baseUrl"
+    },
+
+    "ruleToc": {
+      "chapterList": "#catalog li,#chapterList li,.catalog-list li",
+      "chapterName": "a@text",
+      "chapterUrl": "a@href",
+      "updateTime": ""
+    },
+
+    "ruleContent": {
+      "content": "#content,#chapterContent,.content@text",
+      "replaceRegex": "<br\\s*/?>|<p>|</p>|\\s+<|>\\s+",
+      "nextContentUrl": ""
+    },
+
+    "ruleExplore": {
+      "bookList": ".book-list li,.list-box li",
+      "name": "a.name,h3 a@text",
+      "author": ".author@text",
+      "kind": ".kind,.tag@text",
+      "lastChapter": ".last-chapter a@text",
+      "intro": ".intro@text",
+      "bookUrl": "a@href",
+      "coverUrl": "img@src"
+    },
+
+    "lastUpdateTime": 1740844800000,
+    "weight": 100,
+    "respondTime": 300000,
+    "loginUrl": "",
+    "loginCheckJs": ""
+  }
+]
