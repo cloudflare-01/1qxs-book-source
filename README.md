@@ -16,7 +16,7 @@
 粘贴以下链接：
 
 ```
-https://github.com/cloudflare-01/1qxs-book-source/blob/main/sources/1qxs.json
+https://raw.githubusercontent.com/cloudflare-01/1qxs-book-source/main/sources/1qxs.json
 ```
 
 ## ✨ 功能特性
