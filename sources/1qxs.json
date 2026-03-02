@@ -21,26 +21,22 @@
       "coverUrl": "img@src"
     },
     "ruleBookInfo": {
-      "init": "",
       "name": "h1.book-name,h1@text",
       "author": ".book-author a,.author@text",
       "intro": "#intro,#bookIntro,.intro@text",
       "kind": ".book-tags a,.tags a@text",
       "lastChapter": ".book-latest a,.last-update a@text",
-      "updateTime": ".update-time,.time@text",
       "coverUrl": ".book-cover img,.cover img@src",
       "tocUrl": "@js:baseUrl"
     },
     "ruleToc": {
       "chapterList": "#catalog li,#chapterList li,.catalog-list li",
       "chapterName": "a@text",
-      "chapterUrl": "a@href",
-      "updateTime": ""
+      "chapterUrl": "a@href"
     },
     "ruleContent": {
       "content": "#content,#chapterContent,.content@text",
-      "replaceRegex": "<br\\s*/?>|<p>|</p>|\\s+<|>\\s+",
-      "nextContentUrl": ""
+      "replaceRegex": "<br\\s*/?>|<p>|</p>"
     },
     "ruleExplore": {
       "bookList": ".book-list li,.list-box li",
@@ -48,14 +44,62 @@
       "author": ".author@text",
       "kind": ".kind,.tag@text",
       "lastChapter": ".last-chapter a@text",
-      "intro": ".intro@text",
       "bookUrl": "a@href",
       "coverUrl": "img@src"
     },
-    "lastUpdateTime": 1772343366464,
-    "weight": 100,
-    "respondTime": 300000,
-    "loginUrl": "",
-    "loginCheckJs": ""
+    "lastUpdateTime": 1740844800000,
+    "weight": 100
+  },
+
+  {
+    "bookSourceName": "速读谷",
+    "bookSourceGroup": "免费小说",
+    "bookSourceUrl": "https://www.sudugu.org",
+    "bookSourceType": 0,
+    "bookSourceComment": "速读谷 - 最新热门小说免费阅读网 | 自动维护版本",
+    "enabled": true,
+    "enabledExplore": true,
+    "exploreUrl": "/zuixin/\n最新更新\n/paihang/\n排行榜\n/wanjie/\n完结小说\n/xuanhuan/\n玄幻小说\n/dushi/\n都市小说\n/xianxia/\n仙侠小说\n/lishi/\n历史小说\n/yanqing/\n言情小说",
+    "searchUrl": "/i/so.aspx,{\"method\":\"POST\",\"body\":\"searchkey={{key}}&page={{page}}\"}",
+    "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\", \"Referer\": \"https://www.sudugu.org/\"}",
+    "ruleSearch": {
+      "bookList": ".slist ul li,.list ul li,ul.list li",
+      "name": "a@text",
+      "author": "span.author,em@text",
+      "intro": "span.intro,p@text",
+      "kind": "span.kind,em.type@text",
+      "lastChapter": "span.update a,a:last@text",
+      "bookUrl": "a@href",
+      "coverUrl": "img@src"
+    },
+    "ruleBookInfo": {
+      "name": "h1,#bookname@text",
+      "author": "#author,span.author@text",
+      "intro": "#intro,#bookIntro,#desc@text",
+      "kind": "#type,span.type@text",
+      "lastChapter": "#lastchapter a,#newchapter a@text",
+      "coverUrl": "#bookcover img,#cover img@src",
+      "tocUrl": "@js:baseUrl"
+    },
+    "ruleToc": {
+      "chapterList": "#chapterlist li,#catalog li,.chapterlist li",
+      "chapterName": "a@text",
+      "chapterUrl": "a@href"
+    },
+    "ruleContent": {
+      "content": "#nr,#content,#chaptercontent,.content@text",
+      "replaceRegex": "<br\\s*/?>|<p[^>]*>|</p>|&nbsp;"
+    },
+    "ruleExplore": {
+      "bookList": "article,li.book-item,.book-list li,h3",
+      "name": "h3 a,a.name@text",
+      "author": "a:eq(1)@text",
+      "kind": "span@text",
+      "lastChapter": "a:last@text",
+      "bookUrl": "h3 a,a@href",
+      "coverUrl": "img@src"
+    },
+    "lastUpdateTime": 1740844800000,
+    "weight": 90
   }
 ]
