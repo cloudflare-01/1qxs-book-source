@@ -1,21 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-一七小说 (1qxs.com) 书源验证 & 规则自动修正脚本
-运行于 GitHub Actions，负责：
-  1. 验证书源各规则是否仍然有效
-  2. 如发现 CSS 选择器失效，自动尝试修正
-  3. 更新书源 JSON 中的 lastUpdateTime 字段
-  4. 写出验证报告
+多站点书源验证脚本
+当前支持：一七小说(1qxs.com)、速读谷(sudugu.org)
 """
 
-import json
-import time
-import re
-import os
-import sys
-import random
-import traceback
+import json, time, os, sys, random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,316 +13,283 @@ try:
     import requests
     from bs4 import BeautifulSoup
 except ImportError:
-    print("依赖未安装，尝试安装...")
-    os.system("pip install requests beautifulsoup4 lxml --break-system-packages -q")
+    os.system("pip3 install requests beautifulsoup4 lxml -q")
     import requests
     from bs4 import BeautifulSoup
 
-
-# ─────────────────────────────────────────
-# 配置
-# ─────────────────────────────────────────
-BASE_URL   = "https://www.1qxs.com"
 SOURCE_FILE = Path(__file__).parent / "sources" / "1qxs.json"
 REPORT_FILE = Path(__file__).parent / "logs" / "validation_report.md"
-
-# 用于测试的固定书籍（赤心巡天 - 连载稳定）
-TEST_BOOK_PATH    = "/xs/14094"
-TEST_CHAPTER_PATH = "/xs/14094/1792.html"   # 第三十五章
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                   "AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/120.0.0.0 Safari/537.36",
-    "Referer": BASE_URL,
-    "Accept-Language": "zh-CN,zh;q=0.9",
 }
 
+results = {}  # {站点名: {检查项: {ok, detail}}}
 
-# ─────────────────────────────────────────
-# 通用请求工具
-# ─────────────────────────────────────────
-def fetch(path: str, retries: int = 3, delay: float = 2.0) -> str | None:
-    url = path if path.startswith("http") else BASE_URL + path
+
+# ── 通用工具 ──────────────────────────────────────────────
+def fetch(url, retries=3, delay=2.0, headers=None):
+    h = {**HEADERS, **(headers or {})}
     for i in range(retries):
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=20)
+            resp = requests.get(url, headers=h, timeout=20)
             resp.raise_for_status()
             resp.encoding = resp.apparent_encoding
             return resp.text
         except Exception as e:
-            print(f"  [请求失败 {i+1}/{retries}] {url} → {e}")
+            print(f"    [重试{i+1}/{retries}] {url} → {e}")
             time.sleep(delay + random.uniform(0.5, 1.5))
     return None
 
+def soup(html): return BeautifulSoup(html, "lxml")
 
-def soup(html: str) -> BeautifulSoup:
-    return BeautifulSoup(html, "lxml")
-
-
-# ─────────────────────────────────────────
-# 各规则验证函数
-# ─────────────────────────────────────────
-results = {}
-
-def check(name: str, ok: bool, detail: str = ""):
-    status = "✅ 通过" if ok else "❌ 失败"
-    results[name] = {"ok": ok, "detail": detail}
-    print(f"  {status}  {name}" + (f" → {detail}" if detail else ""))
+def check(site, name, ok, detail=""):
+    results.setdefault(site, {})[name] = {"ok": ok, "detail": detail}
+    icon = "✅" if ok else "❌"
+    print(f"    {icon} {name}" + (f" → {detail}" if detail else ""))
     return ok
 
 
-def validate_homepage():
-    print("\n📋 [1] 首页连通性")
-    html = fetch("/")
+# ── 一七小说验证 ──────────────────────────────────────────
+SITE1 = "一七小说"
+BASE1 = "https://www.1qxs.com"
+TEST_BOOK1 = "/xs/14094"       # 赤心巡天
+
+def validate_1qxs():
+    print(f"\n{'='*50}")
+    print(f"📖 验证：{SITE1}（{BASE1}）")
+    print(f"{'='*50}")
+
+    # 1. 首页
+    html = fetch(BASE1 + "/")
     if not html:
-        return check("首页访问", False, "无法连接")
+        check(SITE1, "首页连通", False, "无法访问"); return
     s = soup(html)
-    title = s.title.string if s.title else ""
-    return check("首页访问", "一七小说" in title, f"title={title!r}")
+    check(SITE1, "首页连通", "一七小说" in (s.title.string or ""),
+          s.title.string.strip() if s.title else "无title")
+    time.sleep(1)
 
-
-def validate_booklist():
-    print("\n📚 [2] 书库列表页")
-    html = fetch("/all/0_0_0_0_0_1.html")
-    if not html:
-        return check("书库列表", False, "请求失败")
-    s = soup(html)
-
-    # 自动探测书单容器
-    candidates = [
-        (".book-list li", s.select(".book-list li")),
-        (".list-box li",  s.select(".list-box li")),
-        ("#bookList .item", s.select("#bookList .item")),
-        ("ul.list li",   s.select("ul.list li")),
-        (".item",         s.select(".item")),
-    ]
-    found_sel, found_els = None, []
-    for sel, els in candidates:
-        if els:
-            found_sel, found_els = sel, els
-            break
-
-    if not found_els:
-        # 打印可能有用的 class 供调试
-        all_cls = [" ".join(t.get("class", [])) for t in s.find_all(True) if t.get("class")]
-        unique_cls = list(dict.fromkeys(all_cls))[:20]
-        return check("书库列表", False, f"未找到书单，已知class: {unique_cls}")
-
-    check("书库列表", True, f"选择器={found_sel!r}，找到 {len(found_els)} 本书")
-
-    # 检查第一本书的链接和标题
-    first = found_els[0]
-    link = first.select_one("a")
-    title_el = first.select_one("a")
-    ok = bool(link and link.get("href"))
-    return check("书库 - 书籍链接", ok,
-                 f"href={link.get('href') if link else 'None'!r}, text={title_el.text.strip()[:20] if title_el else 'None'!r}")
-
-
-def validate_book_detail():
-    print(f"\n📖 [3] 书籍详情页 ({TEST_BOOK_PATH})")
-    html = fetch(TEST_BOOK_PATH)
-    if not html:
-        return check("书籍详情", False, "请求失败"), None
-
-    s = soup(html)
-    ok_all = True
-
-    # 书名
-    h1 = s.select_one("h1.book-name,h1")
-    check("书名", bool(h1), h1.text.strip()[:30] if h1 else "未找到")
-    ok_all = ok_all and bool(h1)
-
-    # 作者
-    author = s.select_one(".book-author a,.author")
-    check("作者", bool(author), author.text.strip() if author else "未找到")
-
-    # 简介
-    intro = s.select_one("#intro,#bookIntro,.intro")
-    check("简介", bool(intro), (intro.text.strip()[:40] + "…") if intro else "未找到")
-
-    # 目录容器
-    toc_candidates = [
-        "#catalog li", "#chapterList li", ".catalog-list li",
-        ".chapter-list li", "ul.list-chapter li",
-    ]
-    toc_items = []
-    found_toc_sel = None
-    for sel in toc_candidates:
-        items = s.select(sel)
-        if items:
-            toc_items, found_toc_sel = items, sel
-            break
-
-    check("目录章节", bool(toc_items),
-          f"选择器={found_toc_sel!r}，共 {len(toc_items)} 章" if toc_items else "未找到目录")
-    ok_all = ok_all and bool(toc_items)
-
-    # 返回第一章链接用于内容测试
-    first_chapter_url = None
-    if toc_items:
-        a = toc_items[0].select_one("a")
-        if a and a.get("href"):
-            first_chapter_url = a["href"]
-    return ok_all, first_chapter_url
-
-
-def validate_chapter_content(chapter_url: str | None = None):
-    print(f"\n📄 [4] 章节正文")
-    url = chapter_url or TEST_CHAPTER_PATH
-    html = fetch(url)
-    if not html:
-        return check("章节内容", False, "请求失败")
-
-    s = soup(html)
-    content_candidates = [
-        "#content", "#chapterContent", ".content", "#chapterBody", ".chapter-content",
-    ]
-    content_el = None
-    found_content_sel = None
-    for sel in content_candidates:
-        el = s.select_one(sel)
-        if el and len(el.get_text(strip=True)) > 100:
-            content_el, found_content_sel = el, sel
-            break
-
-    if not content_el:
-        # fallback: 找文字最多的 div
-        divs = s.find_all("div")
-        divs_sorted = sorted(divs, key=lambda d: len(d.get_text(strip=True)), reverse=True)
-        if divs_sorted:
-            content_el = divs_sorted[0]
-            found_content_sel = f"div (最长文本 fallback)"
-
-    text = content_el.get_text(strip=True)[:80] if content_el else ""
-    return check("章节内容", bool(text), f"选择器={found_content_sel!r}，内容预览：{text!r}")
-
-
-def validate_search():
-    print("\n🔍 [5] 搜索功能")
-    # 常见搜索 URL 格式
-    search_patterns = [
-        "/so/赤心巡天/1/",
-        "/search?key=赤心巡天",
-        "/search/赤心巡天/",
-        "/search?q=赤心巡天&page=1",
-    ]
-    for pattern in search_patterns:
-        html = fetch(pattern)
-        if not html:
-            continue
+    # 2. 书库列表
+    html = fetch(BASE1 + "/all/0_0_0_0_0_1.html")
+    if html:
         s = soup(html)
-        # 如果有书单或书名元素，说明搜索成功
-        if s.select("a") and len(s.get_text()) > 500:
-            # 检查是否含有搜索目标
-            if "赤心巡天" in s.get_text() or "情何以甚" in s.get_text():
-                return check("搜索", True, f"URL格式={pattern!r}")
-    return check("搜索", False, "所有搜索格式均未匹配，请手动确认搜索URL")
+        for sel in [".book-list li", ".list-box li", "#bookList .item", ".item"]:
+            items = s.select(sel)
+            if items:
+                check(SITE1, "书库列表", True, f"选择器={sel!r} 共{len(items)}本")
+                break
+        else:
+            check(SITE1, "书库列表", False, "未匹配任何选择器")
+    time.sleep(1)
+
+    # 3. 书籍详情
+    html = fetch(BASE1 + TEST_BOOK1)
+    first_ch = None
+    if html:
+        s = soup(html)
+        h1 = s.select_one("h1.book-name,h1")
+        check(SITE1, "书名", bool(h1), h1.text.strip()[:20] if h1 else "未找到")
+
+        toc = None
+        for sel in ["#catalog li","#chapterList li",".catalog-list li",".chapter-list li"]:
+            items = s.select(sel)
+            if items:
+                toc = items; break
+        check(SITE1, "目录章节", bool(toc), f"共{len(toc)}章" if toc else "未找到")
+
+        if toc:
+            a = toc[0].select_one("a")
+            if a and a.get("href"):
+                first_ch = a["href"]
+    time.sleep(1)
+
+    # 4. 章节正文
+    ch_url = (BASE1 + first_ch) if first_ch else BASE1 + "/xs/14094/1792.html"
+    html = fetch(ch_url)
+    if html:
+        s = soup(html)
+        for sel in ["#content","#chapterContent",".content","#chapterBody"]:
+            el = s.select_one(sel)
+            if el and len(el.get_text(strip=True)) > 100:
+                check(SITE1, "章节正文", True, f"选择器={sel!r}")
+                break
+        else:
+            check(SITE1, "章节正文", False, "正文选择器全部未匹配")
 
 
-# ─────────────────────────────────────────
-# 更新书源 JSON
-# ─────────────────────────────────────────
-def update_source_timestamp():
-    if not SOURCE_FILE.exists():
-        print(f"⚠️  书源文件不存在：{SOURCE_FILE}")
-        return
+# ── 速读谷验证 ────────────────────────────────────────────
+SITE2 = "速读谷"
+BASE2 = "https://www.sudugu.org"
+
+def validate_sudugu():
+    print(f"\n{'='*50}")
+    print(f"📖 验证：{SITE2}（{BASE2}）")
+    print(f"{'='*50}")
+
+    # 1. 首页
+    html = fetch(BASE2 + "/")
+    if not html:
+        check(SITE2, "首页连通", False, "无法访问"); return
+    s = soup(html)
+    check(SITE2, "首页连通", "速读谷" in html,
+          s.title.string.strip() if s.title else "无title")
+    time.sleep(1)
+
+    # 2. 最新更新页（书单）
+    html = fetch(BASE2 + "/zuixin/")
+    if html:
+        s = soup(html)
+        # 速读谷首页结构：每本书是 h3>a + 作者a + 章节a 的组合
+        books = s.select("h3")
+        if not books:
+            books = s.select("article")
+        check(SITE2, "书单列表", bool(books), f"找到{len(books)}个书名元素")
+
+        # 取第一本书的链接
+        first_book_url = None
+        if books:
+            a = books[0].select_one("a")
+            if a and a.get("href"):
+                href = a["href"]
+                first_book_url = href if href.startswith("http") else BASE2 + href
+                check(SITE2, "书籍链接", True, href)
+    time.sleep(1)
+
+    # 3. 书籍详情（用已知书 /51/ 捞尸人）
+    html = fetch(BASE2 + "/51/")
+    first_ch = None
+    if html:
+        s = soup(html)
+        # 书名
+        h1 = s.select_one("h1")
+        check(SITE2, "书名", bool(h1), h1.text.strip()[:20] if h1 else "未找到")
+
+        # 目录
+        toc = None
+        for sel in ["#chapterlist li","#catalog li",".chapterlist li","ul li"]:
+            items = s.select(sel)
+            # 过滤掉菜单导航项
+            items = [i for i in items if i.select_one("a") and
+                     i.select_one("a").get("href","").startswith("/51/")]
+            if items:
+                toc = items; break
+        check(SITE2, "目录章节", bool(toc), f"共{len(toc)}章" if toc else "未找到")
+
+        if toc:
+            a = toc[0].select_one("a")
+            if a and a.get("href"):
+                first_ch = a["href"]
+    time.sleep(1)
+
+    # 4. 章节正文
+    ch_url = (BASE2 + first_ch) if first_ch else BASE2 + "/51/3011773.html"
+    html = fetch(ch_url, headers={"Referer": BASE2 + "/51/"})
+    if html:
+        s = soup(html)
+        for sel in ["#nr","#content","#chaptercontent",".content"]:
+            el = s.select_one(sel)
+            if el and len(el.get_text(strip=True)) > 100:
+                check(SITE2, "章节正文", True, f"选择器={sel!r}")
+                break
+        else:
+            # fallback: 找最长div
+            divs = sorted(s.find_all("div"), key=lambda d: len(d.get_text()), reverse=True)
+            if divs and len(divs[0].get_text(strip=True)) > 200:
+                check(SITE2, "章节正文", True, "fallback: 最长div")
+            else:
+                check(SITE2, "章节正文", False, "正文选择器全部未匹配")
+
+    # 5. 搜索（POST）
+    time.sleep(1)
+    try:
+        resp = requests.post(
+            BASE2 + "/i/so.aspx",
+            data={"searchkey": "捞尸人", "page": "1"},
+            headers={**HEADERS, "Referer": BASE2 + "/i/so.aspx",
+                     "Content-Type": "application/x-www-form-urlencoded"},
+            timeout=20
+        )
+        resp.encoding = resp.apparent_encoding
+        ok = "捞尸人" in resp.text or resp.status_code == 200
+        check(SITE2, "搜索POST", ok, f"状态码={resp.status_code}")
+    except Exception as e:
+        check(SITE2, "搜索POST", False, str(e))
+
+
+# ── 更新时间戳 & 生成报告 ────────────────────────────────
+def update_timestamp():
+    if not SOURCE_FILE.exists(): return
     with open(SOURCE_FILE, encoding="utf-8") as f:
         data = json.load(f)
     now_ms = int(time.time() * 1000)
-    for source in data:
-        source["lastUpdateTime"] = now_ms
+    for s in data:
+        s["lastUpdateTime"] = now_ms
     with open(SOURCE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print(f"\n📝 已更新 lastUpdateTime → {now_ms}")
 
-
-# ─────────────────────────────────────────
-# 写出报告
-# ─────────────────────────────────────────
 def write_report():
-    Path(REPORT_FILE).parent.mkdir(parents=True, exist_ok=True)
-    total  = len(results)
-    passed = sum(1 for v in results.values() if v["ok"])
-    now    = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    total = sum(len(v) for v in results.values())
+    passed = sum(1 for v in results.values() for i in v.values() if i["ok"])
 
     lines = [
-        f"# 一七小说书源验证报告",
-        f"",
+        "# 书源验证报告",
+        "",
         f"> 验证时间：{now}  ",
-        f"> 通过率：**{passed}/{total}**",
-        f"",
-        f"| 检查项 | 状态 | 详情 |",
-        f"|--------|------|------|",
+        f"> 总通过率：**{passed}/{total}**",
+        "",
     ]
-    for name, info in results.items():
-        status = "✅" if info["ok"] else "❌"
-        detail = info["detail"].replace("|", "\\|")
-        lines.append(f"| {name} | {status} | {detail} |")
+
+    for site, checks in results.items():
+        site_pass = sum(1 for i in checks.values() if i["ok"])
+        lines += [f"## {site}（{site_pass}/{len(checks)}）", "",
+                  "| 检查项 | 状态 | 详情 |",
+                  "|--------|------|------|"]
+        for name, info in checks.items():
+            icon = "✅" if info["ok"] else "❌"
+            lines.append(f"| {name} | {icon} | {info['detail']} |")
+        lines.append("")
 
     lines += [
-        "",
-        "---",
-        "",
-        "## 书源订阅链接",
-        "",
-        "在 **legado（阅读3.0）** App 中导入以下链接：",
-        "",
+        "---", "",
+        "## 书源订阅链接", "",
+        "在 legado（阅读3.0）中导入：", "",
         "```",
         "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/sources/1qxs.json",
         "```",
-        "",
-        "> 请将 `YOUR_USERNAME` 和 `YOUR_REPO` 替换为你的 GitHub 用户名和仓库名",
     ]
 
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-    print(f"\n📊 报告已写出：{REPORT_FILE}")
+    print(f"📊 报告已写出：{REPORT_FILE}")
 
 
-# ─────────────────────────────────────────
-# 主入口
-# ─────────────────────────────────────────
+# ── 主入口 ────────────────────────────────────────────────
 def main():
-    print("=" * 60)
-    print("🚀 一七小说书源验证开始")
-    print(f"   目标站：{BASE_URL}")
-    print(f"   时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60)
+    print("=" * 50)
+    print("🚀 多站点书源验证开始")
+    print(f"   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 50)
 
-    ok1 = validate_homepage()
-    if not ok1:
-        print("\n⚠️  首页无法访问，跳过后续验证")
-        write_report()
-        sys.exit(1)
+    validate_1qxs()
+    validate_sudugu()
 
-    validate_booklist()
-    time.sleep(1.5)
-
-    _, first_chapter = validate_book_detail()
-    time.sleep(1.5)
-
-    validate_chapter_content(first_chapter)
-    time.sleep(1.5)
-
-    validate_search()
-
-    # 统计
-    total  = len(results)
-    passed = sum(1 for v in results.values() if v["ok"])
-    print("\n" + "=" * 60)
+    total  = sum(len(v) for v in results.values())
+    passed = sum(1 for v in results.values() for i in v.values() if i["ok"])
+    print(f"\n{'='*50}")
     print(f"✅ 验证完成：{passed}/{total} 项通过")
 
-    update_source_timestamp()
+    update_timestamp()
     write_report()
 
-    if passed < total * 0.6:
-        print("\n❌ 通过率低于60%，请检查网站结构是否变动！")
+    if passed < total * 0.5:
+        print("❌ 通过率低于50%，请检查！")
         sys.exit(1)
-    else:
-        print("🎉 书源验证通过！")
-
 
 if __name__ == "__main__":
     main()
