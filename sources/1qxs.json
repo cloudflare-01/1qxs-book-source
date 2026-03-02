@@ -47,10 +47,9 @@
       "bookUrl": "a@href",
       "coverUrl": "img@src"
     },
-    "lastUpdateTime": 1740844800000,
+    "lastUpdateTime": 1772410976352,
     "weight": 100
   },
-
   {
     "bookSourceName": "速读谷",
     "bookSourceGroup": "免费小说",
@@ -99,7 +98,7 @@
       "bookUrl": "h3 a,a@href",
       "coverUrl": "img@src"
     },
-    "lastUpdateTime": 1740844800000,
+    "lastUpdateTime": 1772410976352,
     "weight": 90
   }
 ]
