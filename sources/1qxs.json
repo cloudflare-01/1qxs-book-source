@@ -47,7 +47,7 @@
       "bookUrl": "a@href",
       "coverUrl": "img@src"
     },
-    "lastUpdateTime": 1773378339589,
+    "lastUpdateTime": 1773464590435,
     "weight": 100
   },
   {
@@ -98,7 +98,7 @@
       "bookUrl": "h3 a,a@href",
       "coverUrl": "img@src"
     },
-    "lastUpdateTime": 1773378339589,
+    "lastUpdateTime": 1773464590435,
     "weight": 90
   }
 ]
